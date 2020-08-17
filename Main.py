@@ -93,6 +93,23 @@ gini_table["prev_cs_g_f"] = gini_table["cum_sum_green_frctn"].shift(1)
 gini_table["prev_cs_g_f"] = gini_table["prev_cs_g_f"].fillna(0)
 gini_table["area"] = ((gini_table["cum_sum_green_frctn"] + gini_table["prev_cs_g_f"])*0.5)*gini_table["pop_frctn"]
 
-B = gini_table["area"].sum()
-A = 0.5 - B
-Gini = A/(A+B)
+b = gini_table["area"].sum()
+a = 0.5 - b
+gini = a/(a+b)
+
+#plot to show gini in a graph
+x_base = [0,1]
+y_base = [0,1]
+plt.plot(gini_table["cum_sum_pop_frctn"], gini_table["cum_sum_green_frctn"], label="Maastricht Euclidean", linewidth=2,color= "red")
+plt.plot(x_base,y_base, label= "Perfect Gini", linewidth=2, linestyle='--', color= "blue")
+plt.xlabel("Cumulative share of population")
+plt.ylabel("Cumulative share of greenspace")
+plt.title("Gini coefficient")
+plt.legend()
+plt.savefig('./output/maastricht_gini.png')
+plt.show()
+
+
+## Create a map to show how the pop polygon compare to the mean green area.
+# To show which areas are above and which are below the mean
+
