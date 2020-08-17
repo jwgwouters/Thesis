@@ -73,8 +73,7 @@ pop_buffer_clean = pop_buffer[["IDENT", "Pop2012", "geometry"]]
 
 ## only keep parks that intersect with buffer
 parks_ints_buff = parks_RD[parks_RD.intersects(pop_buffer.geometry)]
-
-buffer_park_join = gpd.sjoin(pop_buffer_clean, parks_RD_clean, how="inner", op="intersects")
+#or
 park_buffer_join = gpd.sjoin(parks_RD_clean, pop_buffer_clean, how="inner", op="intersects")
 
 #create new dataframe with the total park area per ident(unique pop polygon id)
@@ -84,4 +83,16 @@ tot_df = park_buffer_join.groupby("IDENT")["park_area"].sum()
 tot_df = pd.merge(tot_df, pop_buffer_clean[["IDENT", "Pop2012"]], on="IDENT", how="inner")
 
 ## calculate the Gini
+gini_table = tot_df
+gini_table["pop_frctn"] = tot_df["Pop2012"]/(tot_df["Pop2012"].sum())
+gini_table["green_frctn"] = tot_df["park_area"]/tot_df["park_area"].sum()
+gini_table = gini_table.sort_values(["green_frctn"])
+gini_table["cum_sum_pop_frctn"] = gini_table["pop_frctn"].cumsum()
+gini_table["cum_sum_green_frctn"] = gini_table["green_frctn"].cumsum()
+gini_table["prev_cs_g_f"] = gini_table["cum_sum_green_frctn"].shift(1)
+gini_table["prev_cs_g_f"] = gini_table["prev_cs_g_f"].fillna(0)
+gini_table["area"] = ((gini_table["cum_sum_green_frctn"] + gini_table["prev_cs_g_f"])*0.5)*gini_table["pop_frctn"]
 
+B = gini_table["area"].sum()
+A = 0.5 - B
+Gini = A/(A+B)
