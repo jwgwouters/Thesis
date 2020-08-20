@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import geopandas as gpd
 import osmnx as ox
 import pandas as pd
+import mapclassify
+import All_functions as funcs
 
 
 ##creating data/output folders
@@ -23,93 +25,40 @@ if not os.path.exists('output'): os.makedirs('output')
 city= 'Maastricht, The Netherlands'
 projection = 'EPSG:28992'
 
-## Read shapefile
+## Read shapefile(not possible to create direct download link, since there is a need to login for access)
 city_shp = gpd.read_file('./data/NL505L1_MAASTRICHT/Shapefiles/NL505L1_MAASTRICHT_UA2012.shp')
 
-#creates outline of municipality
-city_boundary = ox.gdf_from_place(city)
+## calculate the euclidean distance gini for maastricht
+maastr_eucl_200_gini, maastr_eucl_200_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 200)
+maastr_eucl_300_gini, maastr_eucl_300_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 300)
+maastr_eucl_1000_gini, maastr_eucl_1000_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 1000)
 
-#extracts the road network including the intersection nodes
-roads_city = ox.graph_from_place(city, network_type='walk')
-nodes, city_roads = ox.graph_to_gdfs(roads_city)
-
-#transform projection
-#to RD New
-city_boundary_RD = city_boundary.to_crs(projection)
-city_shp_RD = city_shp.to_crs(projection)
-city_roads_RD = city_roads.to_crs(projection)
-
-#intersect roads and landuse by city boundary
-city_shp_cut = gpd.overlay(city_boundary_RD, city_shp_RD, how= 'intersection')
-
-#city_roads_cut = gpd.overlay(city_boundary_RD, city_roads_RD, how= 'intersection')
-city_roads_cut = gpd.sjoin(city_roads_RD, city_boundary_RD, op='intersects')
-
-#select all population polygons with population greater than 0
-city_shp_pop = city_shp_cut[city_shp_cut['Pop2012'] > 0]
-
-#extract osm landuse
-#tags = { "landuse" : ['grass', 'allotments', 'meadow', 'forest']} NEEDS TO BE EXPANDED/MADE A MORE ACCURATE TO REPRESENT GREEN SPACE
-parks_landuse_tags = ['grass', 'allotments', 'meadow', 'forest']
-x = ox.footprints_from_place("Maastricht", footprint_type='landuse')
-
-#only select relevant green space tags from the landuse extraction
-parks = x[x['landuse'].isin(parks_landuse_tags)]
-
-#convert the green spaces to RD new
-parks_RD = parks.to_crs(projection)
-
-#only keep relevant columns
-parks_RD_clean = parks_RD[["landuse", "geometry"]].copy()
-parks_RD_clean["park_area"]= parks_RD_clean.area
+#plot the gini and save to file
+funcs.plot_graph_gini(maastr_eucl_200_gini_table, "Maastricht Euclidean 200m", maastr_eucl_300_gini_table, "Maastricht Euclidean 300m",
+                maastr_eucl_1000_gini_table, "Maastricht Euclidean 1000m", "maastricht_gini")
 
 
-#create euclidean buffer around the population polygons
-#this way the original data stays the same
-pop_buffer = gpd.GeoDataFrame(city_shp_pop, geometry = city_shp_pop.buffer(300))
+#Network analysis
 
-#only keep relevant columns
-pop_buffer_clean = pop_buffer[["IDENT", "Pop2012", "geometry"]]
 
-## only keep parks that intersect with buffer
-parks_ints_buff = parks_RD[parks_RD.intersects(pop_buffer.geometry)]
-#or
-park_buffer_join = gpd.sjoin(parks_RD_clean, pop_buffer_clean, how="inner", op="intersects")
 
-#create new dataframe with the total park area per ident(unique pop polygon id)
-tot_df = park_buffer_join.groupby("IDENT")["park_area"].sum()
 
-## add the population column
-tot_df = pd.merge(tot_df, pop_buffer_clean[["IDENT", "Pop2012"]], on="IDENT", how="inner")
 
-## calculate the Gini
-gini_table = tot_df
-gini_table["pop_frctn"] = tot_df["Pop2012"]/(tot_df["Pop2012"].sum())
-gini_table["green_frctn"] = tot_df["park_area"]/tot_df["park_area"].sum()
-gini_table = gini_table.sort_values(["green_frctn"])
-gini_table["cum_sum_pop_frctn"] = gini_table["pop_frctn"].cumsum()
-gini_table["cum_sum_green_frctn"] = gini_table["green_frctn"].cumsum()
-gini_table["prev_cs_g_f"] = gini_table["cum_sum_green_frctn"].shift(1)
-gini_table["prev_cs_g_f"] = gini_table["prev_cs_g_f"].fillna(0)
-gini_table["area"] = ((gini_table["cum_sum_green_frctn"] + gini_table["prev_cs_g_f"])*0.5)*gini_table["pop_frctn"]
 
-b = gini_table["area"].sum()
-a = 0.5 - b
-gini = a/(a+b)
+## Create a map to show the park area acces per pop polygon.
+# need to join the ginitable back to the pop polygons
+## add park_area to city_shp based on ident
+## diverentiate between 300/500
+city_park_area = city_shp_RD.merge( right=tot_df, left_on=['IDENT'], right_on=['IDENT'], how="inner")
+base_map = city_shp_cut.plot(color="grey")
 
-#plot to show gini in a graph
-x_base = [0,1]
-y_base = [0,1]
-plt.plot(gini_table["cum_sum_pop_frctn"], gini_table["cum_sum_green_frctn"], label="Maastricht Euclidean", linewidth=2,color= "red")
-plt.plot(x_base,y_base, label= "Perfect Gini", linewidth=2, linestyle='--', color= "blue")
-plt.xlabel("Cumulative share of population")
-plt.ylabel("Cumulative share of greenspace")
-plt.title("Gini coefficient")
-plt.legend()
-plt.savefig('./output/maastricht_gini.png')
+pop_sort.plot(ax = base_map, column= "green_per_pop", cmap='RdYlGn', scheme="quantiles")
+
+fig, ax = plt.subplots()
+ax.set_aspect('equal')
+city_shp_RD.plot(ax=ax, color="grey")
+city_park_area.plot(ax=ax, column= "park_area", cmap='RdYlGn', scheme="quantiles")
 plt.show()
 
-
-## Create a map to show how the pop polygon compare to the mean green area.
-# To show which areas are above and which are below the mean
-
+city_park_area.to_file("./output/city_park_area.shp")
+parks_RD_clean.to_file("./output/parks_RD.shp")
