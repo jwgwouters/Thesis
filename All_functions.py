@@ -51,6 +51,16 @@ def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist):
     return gini, gini_table
 
 
+def calc_netwanly_ugs_gini (city, EPGS, UA_data, dist):
+    import osmnx as ox
+    import geopandas as gpd
+    import pandas as pd
+    # Extract city boundary and road network
+    city_boundary = ox.geocode_to_gdf(city, buffer_dist= 500)
+    roads_city = ox.graph_from_place(city, retain_all= True, network_type='walk', buffer_dist=500, which_result=2)
+    nodes, city_roads = ox.graph_to_gdfs(roads_city)
+
+
 
 
 
