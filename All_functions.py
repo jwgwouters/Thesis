@@ -1,7 +1,7 @@
 #Functions file
 #
 
-def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist):
+def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist, ftprnt_type, tags):
     import osmnx as ox
     import geopandas as gpd
     import pandas as pd
@@ -15,9 +15,8 @@ def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist):
     # select all population polygons with population greater than 0
     city_shp_pop = city_shp_cut[city_shp_cut['Pop2012'] > 0]
     # extract osm landuse
-    # tags = { "landuse" : ['grass', 'allotments', 'meadow', 'forest']} NEEDS TO BE EXPANDED/MADE A MORE ACCURATE TO REPRESENT GREEN SPACE
-    parks_landuse_tags = ['grass', 'allotments', 'meadow', 'forest']
-    x = ox.footprints_from_place("Maastricht", footprint_type='landuse')
+    parks_landuse_tags = tags
+    x = ox.footprints_from_place("Maastricht", footprint_type= ftprnt_type)
     # only select relevant green space tags from the landuse extraction
     parks = x[x['landuse'].isin(parks_landuse_tags)]
     # convert the green spaces to RD new

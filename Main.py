@@ -28,10 +28,14 @@ projection = 'EPSG:28992'
 ## Read shapefile(not possible to create direct download link, since there is a need to login for access)
 city_shp = gpd.read_file('./data/NL505L1_MAASTRICHT/Shapefiles/NL505L1_MAASTRICHT_UA2012.shp')
 
-## calculate the euclidean distance gini for maastricht
-maastr_eucl_200_gini, maastr_eucl_200_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 200)
-maastr_eucl_300_gini, maastr_eucl_300_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 300)
-maastr_eucl_1000_gini, maastr_eucl_1000_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 1000)
+#tags
+parks_tag = ['parks', 'dog_park', 'garden', 'playground', 'nature_reserve']
+landuse_tag = ['grass', 'allotments', 'meadow', 'forest']
+
+## calculate the euclidean distance gini for maastricht and parks
+maastr_eucl_200_gini, maastr_eucl_200_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 200, 'leisure', parks_tag)
+maastr_eucl_300_gini, maastr_eucl_300_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 300, 'leisure', parks_tag)
+maastr_eucl_1000_gini, maastr_eucl_1000_gini_table = funcs.calc_eucl_ugs_gini("Maastricht", 'EPSG:28992', city_shp, 1000, 'leisure', parks_tag)
 
 #plot the gini and save to file
 funcs.plot_graph_gini(maastr_eucl_200_gini_table, "Maastricht Euclidean 200m", maastr_eucl_300_gini_table, "Maastricht Euclidean 300m",
