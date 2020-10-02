@@ -47,7 +47,8 @@ def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist, ftprnt_type, tags, id):
     b = gini_table["area"].sum()
     a = 0.5 - b
     gini = a / (a + b)
-    return gini, gini_table
+    gini_table.to_csv("./output/"+city+"_eucl_gini_table.csv")
+    return gini, gini_table, city_shp_pop
 
 
 def calc_na_ugs_gini (city, EPGS, UA_data, dist, ftprnt_type, tags, id):
@@ -197,6 +198,7 @@ def calc_na_ugs_gini (city, EPGS, UA_data, dist, ftprnt_type, tags, id):
     b = gini_table["area"].sum()
     a = 0.5 - b
     gini = a / (a + b)
+    gini_table.to_csv("./output/"+city+"_na_gini_table.csv")
     return gini, gini_table
 
 def plot_graph_gini(data1, label1, data2,label2, filename):
