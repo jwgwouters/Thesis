@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Spyder Editor
-
-This is a temporary script file.
-"""
 #program to extract network data
 
 
@@ -36,62 +30,60 @@ nijm_epsg = 'EPSG:28992'
 #the osm tags used
 parks_tag = ['parks', 'dog_park', 'garden', 'playground', 'nature_reserve']
 landuse_tag = ['grass', 'allotments', 'meadow', 'forest']
+lu_tags = {'landuse':['grass','allotments', 'meadow', 'forest']}
 
-#calculate Bristol NA and Eucl 300m  gini for landuse tags
-brist_na_800_landuse_gini, brist_na_800_landuse_gini_table = funcs.calc_na_ugs_gini("Bristol", brist_epsg, Bristol_UA, distance, 'landuse', landuse_tag, 'identifier')
-brist_eucl_800_landuse_gini, brist_eucl_800_landuse_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol", brist_epsg, Bristol_UA, distance, 'landuse', landuse_tag, 'identifier')
+##BRISTOL
+#calculate Bristol NA and Eucl 800m  gini for osm landuse tags
+brist_na_800_OSM_lu_gini, brist_na_800_OSM_lu_gini_table = funcs.calc_na_ugs_gini(city="Bristol", EPSG=brist_epsg, UA_data=Bristol_UA,dist= distance,osm_tags= landuse_tag, id='identifier')
+brist_eucl_800_OSM_lu_gini, brist_eucl_800_OSM_lu_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol", brist_epsg, Bristol_UA, distance, landuse_tag, id='identifier')
 
-#calculate Essen NA and Eucl 300m  gini for landuse tags
-ess_na_800_landuse_gini, ess_na_800_landuse_gini_table = funcs.calc_na_ugs_gini("Essen", ess_epsg, Essen_UA, distance, 'landuse', landuse_tag, id="IDENT")
-ess_eucl_800_landuse_gini, ess_eucl_800_landuse_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen", ess_epsg, Essen_UA, distance, 'landuse', landuse_tag, id="IDENT")
-
-#calculate Nijmegen NA and Eucl 300m  gini for landuse tags
-nijm_na_800_landuse_gini, nijm_na_800_landuse_gini_table = funcs.calc_na_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, 'landuse', landuse_tag, 'identifier')
-nijm_eucl_800_landuse_gini, nijm_eucl_800_landuse_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, 'landuse', landuse_tag, id= 'identifier')
+#calculate Bristol NA and Eucl 800m  gini for UA UGS definition
+brist_na_800_UA_gini, brist_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Bristol", brist_epsg, Bristol_UA, distance, osm_tags=0, id='identifier')
+brist_eucl_800_UA_gini, brist_eucl_800_UA_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol", brist_epsg, Bristol_UA, distance, osm_tags=0, id='identifier')
 
 
-#Plot & save the gini graphs per city
-funcs.plot_graph_gini(brist_eucl_800_landuse_gini_table, "Bristol landuse Euclidean 800m", brist_na_800_landuse_gini_table, "Bristol landuse Network Analysis 800m",
+##ESSEN
+#calculate Essen NA and Eucl 800m  gini for landuse tags
+ess_na_800_OSM_lu_gini, ess_na_800_OSM_lu_gini_table = funcs.calc_na_ugs_gini("Essen", ess_epsg, Essen_UA, distance, 'landuse', landuse_tag, id="IDENT")
+ess_eucl_800_OSM_lu_gini, ess_eucl_800_OSM_lu_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen", ess_epsg, Essen_UA, distance, landuse_tag, id="IDENT")
+
+#calculate Essen NA and Eucl 800m  gini for UA UGS definition
+ess_na_800_UA_gini, ess_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Essen", ess_epsg, Essen_UA, distance, 'landuse', osm_tags=0, id="IDENT")
+ess_eucl_800_UA_gini, ess_eucl_800_UA_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen", ess_epsg, Essen_UA, distance, osm_tags=0, id="IDENT")
+
+
+##NIJMEGEN
+#calculate Nijmegen NA and Eucl 800m  gini for landuse tags
+nijm_na_800_OSM_lu_gini, nijm_na_800_OSM_lu_gini_table = funcs.calc_na_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, 'landuse', landuse_tag, 'identifier')
+nijm_eucl_800_OSM_lu_gini, nijm_eucl_800_OSM_lu_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, landuse_tag, id= 'identifier')
+
+#calculate Nijmegen NA and Eucl 800m  gini for UA UGS definition
+nijm_na_800_UA_gini, nijm_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, 'landuse', osm_tags=0, id='identifier')
+nijm_eucl_800_UA_gini, nijm_eucl_800_UA_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen", nijm_epsg, Nijmegen_UA, distance, osm_tags=0, id='identifier')
+
+
+
+##Visualizations
+#Plot & save the gini graphs per city the different methods and 2 selected definitions
+funcs.plot_graph_gini(brist_eucl_800_OSM_lu_gini_table, "Bristol OSM Euclidean 800m",
+                      brist_na_800_OSM_lu_gini_table, "Bristol OSM Network Analysis 800m",
+                      brist_eucl_800_UA_gini_table, "Bristol UA Euclidean 800m",
+                      brist_na_800_UA_gini_table, "Bristol UA Network Analysis 800m",
                       filename='brist_na_eucl_800_gini_landuse')
 
-funcs.plot_graph_gini(ess_eucl_800_landuse_gini_table, "Essen landuse Euclidean 800m", ess_na_800_landuse_gini_table, "Essen landuse Network Analysis 800m",
+funcs.plot_graph_gini(ess_eucl_800_OSM_lu_gini_table, "Essen OSM Euclidean 800m",
+                      ess_na_800_OSM_lu_gini_table, "Essen OSM Network Analysis 800m",
+                      ess_eucl_800_UA_gini_table, "Essen UA Euclidean 800m",
+                      ess_na_800_UA_gini_table, "Essen UA Network Analysis 800m",
                       filename='ess_na_eucl_800_gini_landuse')
 
-funcs.plot_graph_gini(nijm_eucl_800_landuse_gini_table, "Nijmegen landuse Euclidean 800m", nijm_na_800_landuse_gini_table, "Nijmegen landuse Network Analysis 800m",
+funcs.plot_graph_gini(nijm_eucl_800_OSM_lu_gini_table, "Nijmegen OSM Euclidean 800m",
+                      nijm_na_800_OSM_lu_gini_table, "Nijmegen OSM Network Analysis 800m",
+                      nijm_eucl_800_UA_gini_table,"Nijmegen UA Network Analysis 800m",
+                      nijm_na_800_UA_gini_table, "Nijmegen UA Network Analysis 800m",
                       filename='nijm_na_eucl_800_gini_landuse')
 
-#save gini tables (need to incorporate into function)
-nijm_eucl_800_landuse_gini_table.to_csv("./output/nijmegen_800_eucl_gini_table.csv")
-nijm_na_800_landuse_gini_table.to_csv("./output/nijmegen_800_na_gini_table.csv")
-
-ess_eucl_800_landuse_gini_table.to_csv("./output/essen_800_eucl_gini_table.csv")
-ess_na_800_landuse_gini_table.to_csv("./output/essen_800_na_gini_table.csv")
-
-brist_eucl_800_landuse_gini_table.to_csv("./output/bristol_800_eucl_gini_table.csv")
-brist_na_800_landuse_gini_table.to_csv("./output/bristol_800_na_gini_table.csv")
 
 
 
-## Create a map to show the park area acces per pop polygon.
-# need to join the ginitable back to the pop polygons
-## add park_area to city_shp based on ident
-## diverentiate between 300/500
-nijm_park_area = nijm_pop.merge( right=nijm_eucl_800_landuse_gini_table, left_on=['identifier'], right_on=['identifier'], how="inner")
-base_map = city_shp_cut.plot(color="grey")
 
-pop_sort.plot(ax = base_map, column= "green_per_pop", cmap='RdYlGn', scheme="quantiles")
-
-fig, ax = plt.subplots()
-ax.set_aspect('equal')
-#city_shp_RD.plot(ax=ax, color="grey")
-nijm_park_area.plot(ax=ax, column= "park_area", cmap='RdYlGn', scheme="quantiles")
-fig.savefig("nijm_park_area.png")
-plt.show()
-
-nijm_pop.plot()
-nijm_park_area.plot()
-
-nijm_park_area.to_file("./output/nijm_park_area.png")
-nijm_park_area.savefig
-
-parks_RD_clean.to_file("./output/parks_RD.shp")
