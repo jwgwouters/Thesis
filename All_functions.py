@@ -1,5 +1,5 @@
 #Functions file
-#
+#TEST1233
 
 def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist, osm_tags, id):
     # import packages
