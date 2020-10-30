@@ -18,19 +18,25 @@ def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist, osm_tags, id):
     city_shp_cut = gpd.overlay(city_boundary_RD, city_shp_RD, how='intersection')
     # select all population polygons with population greater than 0
     city_shp_pop = city_shp_cut[city_shp_cut['Pop2012'] > 0]
-    if osm_tags != 0:
+    if osm_tags == 'eu':
+        if id == 'identifier':
+            #use the definition of the Urban Atlas for UGS
+            parks = city_shp_cut[city_shp_cut['code_2012'].isin(['14100', '31000'])]
+        else:
+            parks = city_shp_cut[city_shp_cut['CODE2012'].isin(['14100', '31000'])]
+    elif osm_tags =='ua' :
+        if id == 'identifier':
+            #use the definition of the Urban Atlas for UGS
+            parks = city_shp_cut[city_shp_cut['code_2012'].isin(['14100'])]
+        else:
+            parks = city_shp_cut[city_shp_cut['CODE2012'].isin(['14100'])]
+    else:
         # extract osm landuse & use a buffer of 1km around the city to also extract parks just outside the city boundary
         # create a 1km to also incorporate UGS outside the city
         city_boundary_buff = city_boundary.to_crs(EPSG)
         city_boundary_buff = city_boundary_buff.buffer(1000)
         city_boundary_buff = city_boundary_buff.to_crs(city_boundary.crs)
         parks = ox.geometries_from_polygon(city_boundary_buff[0], osm_tags)
-    else:
-        if id == 'identifier':
-            #use the definition of the Urban Atlas for UGS
-            parks = city_shp_cut[city_shp_cut['code_2012'].isin(['14100'])]
-        else:
-            parks = city_shp_cut[city_shp_cut['CODE2012'].isin(['14100'])]
     # convert the green spaces to RD new
     parks_RD = parks.to_crs(EPSG)
     # perform unary union to combine overlapping park polygons and then explode the multipolygon into separate polygons
@@ -66,9 +72,9 @@ def calc_eucl_ugs_gini (city, EPSG, UA_data, eucl_dist, osm_tags, id):
     a = 0.5 - b
     gini = a / (a + b)
     if osm_tags != 0 :
-        gini_table.to_csv("./output/" + city + "_" + str(eucl_dist) + "_OSM_eucl_gini_table.csv")
+        gini_table.to_csv("./output/" + city[:4] + "_" + str(eucl_dist) + "_OSM_eucl_gini_table.csv")
     else:
-        gini_table.to_csv("./output/" + city + "_" + str(eucl_dist) + "_UA_eucl_gini_table.csv")
+        gini_table.to_csv("./output/" + city[:4] + "_" + str(eucl_dist) + "_UA_eucl_gini_table.csv")
     return gini, gini_table, city_shp_pop
 
 
@@ -98,18 +104,25 @@ def calc_na_ugs_gini (city, EPSG, UA_data, dist, osm_tags, id):
     city_boundary_RD = city_boundary.to_crs(EPSG)
 
     #select the defintion based on if osm_tags was filled in or not
-    if osm_tags != 0:
-        # extract osm landuse & use a buffer of 1km around the city to also extract parks just ouside the city boundary
-        city_boundary_buff = city_boundary.to_crs(EPSG)
-        city_boundary_buff = city_boundary_buff.buffer(1000)
-        city_boundary_buff = city_boundary_buff.to_crs(city_boundary.crs)
-        parks = ox.geometries_from_polygon(city_boundary_buff[0], osm_tags)
-    else:
+    if osm_tags == 'ua':
         if id == 'identifier':
             #use the definition of the Urban Atlas for UGS
             parks = pop_tf[pop_tf['code_2012'].isin(['14100'])]
         else:
             parks = pop_tf[pop_tf['CODE2012'].isin(['14100'])]
+    elif osm_tags=='eu':
+        if id == 'identifier':
+            # use the definition of the Urban Atlas for UGS
+            parks = pop_tf[pop_tf['code_2012'].isin(['14100', '31000'])]
+        else:
+            parks = pop_tf[pop_tf['CODE2012'].isin(['14100', '31000'])]
+    else:
+        # extract osm landuse & use a buffer of 1km around the city to also extract parks just ouside the city boundary
+        city_boundary_buff = city_boundary.to_crs(EPSG)
+        city_boundary_buff = city_boundary_buff.buffer(1000)
+        city_boundary_buff = city_boundary_buff.to_crs(city_boundary.crs)
+        parks = ox.geometries_from_polygon(city_boundary_buff[0], osm_tags)
+
         #use the definition of the Urban Atlas for UGS 14100= Green urban areas
 
     #convert parks to entered EPSG
@@ -129,7 +142,7 @@ def calc_na_ugs_gini (city, EPSG, UA_data, dist, osm_tags, id):
     # select only the pop polygons
     pop_poly = city_shp_cut[city_shp_cut['Pop2012'] > 0]
 
-    if not os.path.exists("./output/" + city + "_na_buffer.shp"):
+    if not os.path.exists("./output/" + city[:4].lower() + "_na_buffer.shp"):
         # create a tuple with the x an y coordinates of the pop polygon centroids
         coords_cen = np.vstack([pop_poly.centroid.x, pop_poly.centroid.y]).T
         coords_cen_tp = tuple(map(tuple, coords_cen))
@@ -209,9 +222,9 @@ def calc_na_ugs_gini (city, EPSG, UA_data, dist, osm_tags, id):
         na_gdf = gpd.GeoDataFrame()
         for i in range(len(pop_na_poly)):
             na_gdf = na_gdf.append(gpd.GeoDataFrame(geometry=pop_na_poly[i], crs=EPSG))
-        na_gdf.to_file("./output/" + city + "_na_buffer.shp")
+        na_gdf.to_file("./output/" + city[:4].lower() + "_na_buffer.shp")
     else:
-        na_gdf = gpd.read_file("./output/" + city + "_na_buffer.shp")
+        na_gdf = gpd.read_file("./output/" + city[:4].lower() + "_na_buffer.shp")
     # set same index as the pop_poly
     na_gdf = na_gdf.set_index(pop_poly.index)
 
@@ -243,9 +256,9 @@ def calc_na_ugs_gini (city, EPSG, UA_data, dist, osm_tags, id):
     a = 0.5 - b
     gini = a / (a + b)
     if osm_tags != 0 :
-        gini_table.to_csv("./output/" + city + "_" + str(dist) + "_OSM_na_gini_table.csv")
+        gini_table.to_csv("./output/" + city[:4] + "_" + str(dist) + "_OSM_na_gini_table.csv")
     else:
-        gini_table.to_csv("./output/" + city + "_" + str(dist) + "_UA_na_gini_table.csv")
+        gini_table.to_csv("./output/" + city[:4] + "_" + str(dist) + "_UA_na_gini_table.csv")
     return gini, gini_table
 
 def plot_graph_gini(data1, label1, data2,label2, data3,label3, data4,label4,  filename):
@@ -314,23 +327,30 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, osm_tags, na_gini_csv, euc
     city_shp_cut = gpd.overlay(city_boundary_RD, pop_tf, how='intersection')
 
     ##extract the park areas of UA or OSM
-    if osm_tags != 0:
-        # extract osm landuse & use a buffer of 1km around the city to also extract parks just outside the city boundary
+    if osm_tags == 'ua':
+        if id == 'identifier':
+            #use the definition of the Urban Atlas for UGS
+            parks = pop_tf[pop_tf['code_2012'].isin(['14100'])]
+        else:
+            parks = pop_tf[pop_tf['CODE2012'].isin(['14100'])]
+    elif osm_tags=='eu':
+        if id == 'identifier':
+            # use the definition of the Urban Atlas for UGS
+            parks = pop_tf[pop_tf['code_2012'].isin(['14100', '31000'])]
+        else:
+            parks = pop_tf[pop_tf['CODE2012'].isin(['14100', '31000'])]
+    else:
+        # extract osm landuse & use a buffer of 1km around the city to also extract parks just ouside the city boundary
         city_boundary_buff = city_boundary.to_crs(EPSG)
         city_boundary_buff = city_boundary_buff.buffer(1000)
         city_boundary_buff = city_boundary_buff.to_crs(city_boundary.crs)
         parks = ox.geometries_from_polygon(city_boundary_buff[0], osm_tags)
-    else:
-        if id == 'identifier':
-            # use the definition of the Urban Atlas for UGS
-            parks = pop_tf[pop_tf['code_2012'].isin(['14100'])]
-        else:
-            # use the definition of the Urban Atlas for UGS 14100= Green urban areas
-            parks = pop_tf[pop_tf['CODE2012'].isin(['14100'])]
     # convert the green spaces to RD new
     parks_RD = parks.to_crs(EPSG)
+    # clip parks to boundary of
+    parks_cut = gpd.clip(parks_RD,city_boundary_RD)
     # perform unary union to combine overlapping park polygons and then explode the multipolygon into separate polygons
-    parks_copy = parks_RD.copy()
+    parks_copy = parks_cut.copy()
     geom = parks_copy.geometry.unary_union
     parks_copy = gpd.GeoDataFrame(geometry=[geom], crs=EPSG)
     parks_copy = parks_copy.explode().reset_index(drop=True)
@@ -347,7 +367,7 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, osm_tags, na_gini_csv, euc
     ## difference between the two
     eucl_park_area['diff_green_per_person_eucl_na'] = eucl_park_area['park_area'] - na_park_area['park_area']
 
-    ##create map which visualizes one green per pop
+    ##create map which visualizes network
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.set_aspect('equal')
     parks_copy.plot(ax=ax, color='darkgreen', legend=True, label='UGS')
@@ -357,7 +377,7 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, osm_tags, na_gini_csv, euc
     ctx.add_basemap(ax, zoom=14, crs=parks_copy.crs, source=ctx.providers.Stamen.TonerLite)
     ax.set_title(city + ' Network UGS total park area(in ha) for dataset ' + dataset)
     ax.axis('off')
-    plt.savefig('./output/' + city + '_' + dataset + '_park_area_pop_na.png', dpi=500)
+    plt.savefig('./output/' + city[:4] + '_' + dataset + '_park_area_pop_na.png', dpi=500)
 
     ##euclidean plot
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -369,7 +389,7 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, osm_tags, na_gini_csv, euc
     ctx.add_basemap(ax, zoom=14, crs=parks_copy.crs, source=ctx.providers.Stamen.TonerLite)
     ax.set_title(city + ' Euclidean UGS total park area (in ha) for dataset ' + dataset)
     ax.axis('off')
-    plt.savefig('./output/' + city + '_' + dataset + '_park_area_pop_eucl.png', dpi=500)
+    plt.savefig('./output/' + city[:4] + '_' + dataset + '_park_area_pop_eucl.png', dpi=500)
 
     # difference plot
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -383,6 +403,6 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, osm_tags, na_gini_csv, euc
     ax.set_title(
         city + ' difference in UGS total area(in ha) \n per method(Euclidean(+), Network(-)) for dataset ' + dataset)
     ax.axis('off')
-    plt.savefig('./output/' + city + '_' + dataset + '_park_area_diff.png', dpi=500)
+    plt.savefig('./output/' + city[:4] + '_' + dataset + '_park_area_diff.png', dpi=500)
 
 
