@@ -1,6 +1,5 @@
 #program to extract network data
 
-
 #importing libraries
 import os
 import matplotlib.pyplot as plt
@@ -10,87 +9,82 @@ import pandas as pd
 import mapclassify
 import All_functions as funcs
 
-
-##creating data/output folders
-if not os.path.exists('data'): os.makedirs('data')
-if not os.path.exists('output'): os.makedirs('output')
-
+brist_epsg = 'EPSG:27700'
+ess_epsg = 'EPSG:5676'
+nijm_epsg = 'EPSG:28992'
+cities = ['Bristol, United Kingdom', "Essen, Germany", "Nijmegen, the Netherlands"]
 
 ## Read shapefile(not possible to create direct download link, since there is a need to login for access)
 Bristol_UA = gpd.read_file("./data/UK011L2_BRISTOL_UA2012_revised_021/Data/UK011L2_BRISTOL_UA2012_revised_021.gpkg")
 Essen_UA = gpd.read_file("./data/DE038L1_RUHRGEBIET_013/Data/DE038L1_RUHRGEBIET_013.gpkg")
 Nijmegen_UA = gpd.read_file("./data/NL013L3_NIJMEGEN_UA2012_revised_021/Data/NL013L3_NIJMEGEN_UA2012_revised_021.gpkg")
 
-#The distance of the euclidean & network service areas and the used epsg per city
-distance = 800
-brist_epsg = 'EPSG:27700'
-ess_epsg = 'EPSG:5676'
-nijm_epsg = 'EPSG:28992'
+#create folders for data and output per method per city
+funcs.create_folders(cities, methods = ['network', 'euclidean', 'nearest'])
 
-#OSM tags definitions
-osm_ua = {'amenity':'grave_yard', 'landuse':['allotments','farmland','forest', 'cemetery', 'grass', 'recreation_ground', 'village_green'],
-              'leisure':['common', 'dog_park', 'garden', 'nature_reserve', 'park', 'playground'], 'natural': ['wood', 'grassland'], 'tourism': ['zoo']}
-
-osm_narrow = {'amenity':'grave_yard', 'landuse':['allotments','forest', 'cemetery', 'recreation_ground', 'village_green'],
-              'leisure':['common', 'dog_park', 'garden', 'nature_reserve', 'park', 'playground'], 'tourism': ['zoo']}
-
-osm_broad =  {'amenity':'grave_yard', 'landuse':['allotments','farmland','forest', 'meadow', 'orchard', 'vineyard', 'brownfield', 'cemetery', 'grass', 'greenfield', 'recreation_ground', 'village_green'],
-              'leisure':['common', 'dog_park', 'garden', 'nature_reserve', 'park', 'playground'], 'natural': ['wood', 'scrub', 'heath', 'grassland'], 'tourism': ['picnic_site', 'zoo']}
+#create intermediate data necessary for the use in the differnt methods (such as road networks, city boundaries)
+funcs.preprocessing(cities[0],brist_epsg, "./data/UK011L2_BRISTOL_UA2012_revised_021/Data/UK011L2_BRISTOL_UA2012_revised_021.gpkg")
+funcs.preprocessing(cities[1],ess_epsg, "./data/DE038L1_RUHRGEBIET_013/Data/DE038L1_RUHRGEBIET_013.gpkg")
+funcs.preprocessing(cities[2],nijm_epsg, "./data/NL013L3_NIJMEGEN_UA2012_revised_021/Data/NL013L3_NIJMEGEN_UA2012_revised_021.gpkg")
 
 
-##BRISTOL
-#calculate Bristol NA and Eucl 800m OSM UA gini for osm UA tags
-brist_na_800_OSM_UA_gini, brist_na_800_OSM_UA_gini_table = funcs.calc_na_ugs_gini(city="Bristol, United Kingdom", EPSG=brist_epsg, UA_data=Bristol_UA,dist= distance,osm_tags= osm_ua, id='identifier')
-brist_eucl_800_OSM_UA_gini, brist_eucl_800_OSM_UA_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags=osm_ua, id='identifier')
-#calculate Bristol NA and Eucl 800m  gini for osm narrow tags
-brist_na_800_OSM_narrow_gini, brist_na_800_OSM_narrow_gini_table = funcs.calc_na_ugs_gini(city="Bristol, United Kingdom", EPSG=brist_epsg, UA_data=Bristol_UA,dist= distance,osm_tags= osm_narrow, id='identifier')
-brist_eucl_800_OSM_narrow_gini, brist_eucl_800_OSM_narrow_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags=osm_narrow, id='identifier')
-#calculate Bristol NA and Eucl 800m  gini for osm broad tags
-brist_na_800_OSM_broad_gini, brist_na_800_OSM_broad_gini_table = funcs.calc_na_ugs_gini(city="Bristol, United Kingdom", EPSG=brist_epsg, UA_data=Bristol_UA,dist= distance,osm_tags= osm_broad, id='identifier')
-brist_eucl_800_OSM_broad_gini, brist_eucl_800_OSM_broad_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags=osm_broad, id='identifier')
-#calculate Bristol NA and Eucl 800m  gini for UA UGS definition
-brist_na_800_UA_gini, brist_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags='ua', id='identifier')
-brist_eucl_800_UA_gini, brist_eucl_800_UA_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags='ua', id='identifier')
-#calculate Bristol NA and Eucl 800m  gini for EU UA UGS definition
-brist_na_800_EU_gini, brist_na_800_EU_gini_table = funcs.calc_na_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags='eu', id='identifier')
-brist_eucl_800_EU_gini, brist_eucl_800_EU_gini_table, brist_pop = funcs.calc_eucl_ugs_gini("Bristol, United Kingdom", brist_epsg, Bristol_UA, distance, osm_tags='eu', id='identifier')
-
+##Bristol
+#euclidean
+brist_UA_eucl = funcs.execute_eucl('Bristol, United Kingdom', brist_epsg, Bristol_UA,'UA')
+brist_OSM_base_eucl = funcs.execute_eucl('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_base')
+brist_OSM_adj_eucl = funcs.execute_eucl('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_adj')
+#network
+brist_UA_na = funcs.execute_na('Bristol, United Kingdom', brist_epsg, Bristol_UA,'UA')
+brist_OSM_base_na = funcs.execute_na('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_base')
+brist_OSM_adj_na = funcs.execute_na('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_adj')
+#nearest
+brist_UA_near = funcs.execute_nearest('Bristol, United Kingdom', brist_epsg, Bristol_UA,'UA')
+brist_OSM_base_near = funcs.execute_nearest('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_base')
+brist_OSM_adj_near = funcs.execute_nearest('Bristol, United Kingdom', brist_epsg, Bristol_UA,'OSM_adj')
 
 
 ##ESSEN
-#calculate Essen NA and Eucl 800m OSM UA gini for osm UA
-ess_na_800_OSM_UA_gini, ess_na_800_OSM_UA_gini_table = funcs.calc_na_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags= osm_ua, id="IDENT")
-ess_eucl_800_OSM_UA_gini, ess_eucl_800_OSM_UA_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags= osm_ua, id="IDENT")
-#calculate Essen NA and Eucl 800m  gini for osm narrow tags
-ess_na_800_OSM_narrow_gini, ess_na_800_OSM_narrow_gini_table = funcs.calc_na_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance,  osm_tags=osm_narrow, id="IDENT")
-ess_eucl_800_OSM_narrow_gini, ess_eucl_800_OSM_narrow_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags=osm_narrow, id="IDENT")
-#calculate Essen NA and Eucl 800m  gini for for osm broad tags
-ess_na_800_OSM_broad_gini, ess_na_800_OSM_broad_gini_table = funcs.calc_na_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance,  osm_tags=osm_broad, id="IDENT")
-ess_eucl_800_OSM_broad_gini, ess_eucl_800_OSM_broad_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags=osm_broad, id="IDENT")
-#calculate Essen NA and Eucl 800m  gini for UA UGS definition
-ess_na_800_UA_gini, ess_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance,  osm_tags='ua', id="IDENT")
-ess_eucl_800_UA_gini, ess_eucl_800_UA_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags='ua', id="IDENT")
-#calculate Essen NA and Eucl 800m  gini for EU UA UGS definition
-ess_na_800_EU_gini, ess_na_800_EU_gini_table = funcs.calc_na_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance,  osm_tags='eu', id="IDENT")
-ess_eucl_800_EU_gini, ess_eucl_800_EU_gini_table, ess_pop = funcs.calc_eucl_ugs_gini("Essen, Germany", ess_epsg, Essen_UA, distance, osm_tags='eu', id="IDENT")
+#euclidean
+esse_UA_eucl = funcs.execute_eucl("Essen, Germany", ess_epsg, Essen_UA,'UA')
+esse_OSM_base_eucl = funcs.execute_eucl("Essen, Germany", ess_epsg, Essen_UA,'OSM_base')
+esse_OSM_adj_eucl = funcs.execute_eucl("Essen, Germany", ess_epsg, Essen_UA,'OSM_adj')
+#network
+esse_UA_na = funcs.execute_na("Essen, Germany", ess_epsg, Essen_UA,'UA')
+esse_OSM_base_na = funcs.execute_na("Essen, Germany", ess_epsg, Essen_UA,'OSM_base')
+esse_OSM_adj_na = funcs.execute_na("Essen, Germany", ess_epsg, Essen_UA,'OSM_adj')
+#nearest
+esse_UA_near = funcs.execute_nearest("Essen, Germany", ess_epsg, Essen_UA,'UA')
+esse_OSM_base_near = funcs.execute_nearest("Essen, Germany", ess_epsg, Essen_UA,'OSM_base')
+esse_OSM_adj_near = funcs.execute_nearest("Essen, Germany", ess_epsg, Essen_UA,'OSM_adj')
 
 
-##NIJMEGEN
-#calculate Nijmegen NA and Eucl 800m OSM UA gini for landuse tags
-nijm_na_800_OSM_UA_gini, nijm_na_800_OSM_UA_gini_table = funcs.calc_na_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags= osm_ua, id='identifier')
-nijm_eucl_800_OSM_UA_gini, nijm_eucl_800_OSM_UA_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags= osm_ua, id= 'identifier')
-#calculate Nijmegen NA and Eucl 800m  gini for UA UGS definition
-nijm_na_800_OSM_narrow_gini, nijm_na_800_OSM_narrow_gini_table = funcs.calc_na_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags = osm_narrow, id='identifier')
-nijm_eucl_800_OSM_narrow_gini, nijm_eucl_800_OSM_narrow_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags=osm_narrow, id='identifier')
-#calculate Nijmegen NA and Eucl 800m  gini for UA UGS definition
-nijm_na_800_OSM_broad_gini, nijm_na_800_OSM_broad_gini_table = funcs.calc_na_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags = osm_broad, id='identifier')
-nijm_eucl_800_OSM_broad_gini, nijm_eucl_800_OSM_broad_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags=osm_broad, id='identifier')
-#calculate Nijmegen NA and Eucl 800m  gini for UA UGS definition
-nijm_na_800_UA_gini, nijm_na_800_UA_gini_table = funcs.calc_na_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags = 'ua', id='identifier')
-nijm_eucl_800_UA_gini, nijm_eucl_800_UA_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags='ua', id='identifier')
-#calculate Nijmegen NA and Eucl 800m  gini for UA UGS definition
-nijm_na_800_EU_gini, nijm_na_800_EU_gini_table = funcs.calc_na_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags='eu', id='identifier')
-nijm_eucl_800_EU_gini, nijm_eucl_800_EU_gini_table, nijm_pop = funcs.calc_eucl_ugs_gini("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, distance, osm_tags='eu', id='identifier')
+
+##Nijmegen
+#euclidean
+nijm_eucl_UA = funcs.execute_eucl("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'UA')
+nijm_eucl_OSM_base = funcs.execute_eucl("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_base')
+nijm_eucl_OSM_adj = funcs.execute_eucl("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_adj')
+#network
+nijm_na_UA = funcs.execute_na("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'UA')
+nijm_na_OSM_base = funcs.execute_na("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_base')
+nijm_na_OSM_adj = funcs.execute_na("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_adj')
+#nearest
+nijm_nearest_UA = funcs.execute_nearest("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'UA')
+nijm_nearest_OSM_base = funcs.execute_nearest("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_base')
+nijm_nearest_OSM_adj = funcs.execute_nearest("Nijmegen, the Netherlands", nijm_epsg, Nijmegen_UA, 'OSM_adj')
+
+#local Morans I
+#turn into seperate function
+distances = [300,800]
+sizes = [0.25,1,5]
+names = ["UA", "OSM_base", "OSM_adj"]
+method= ["euclidean", "na", "near"]
+city = 'Nijmegen, the Netherlands'
+
+for k in range(len(names)):
+    for i in range(len(distances)):
+        for j in range(len(sizes)):
+            funcs.moran_bv_plots(city, method[0], distances[i], sizes[j], names[k], "identifier")
 
 
 ##Visualizations
@@ -135,37 +129,38 @@ funcs.histo_area_UGS(city= "Essen", csv_eucl_path='./output/Essen_800_OSM_eucl_g
 ##Maps of total area and difference in area per method and dataset
 
 #Nijmegen
-funcs.maps_green_per_poly(city='Nijmegen',dataset='UA',UA_data=Nijmegen_UA, EPSG=nijm_epsg, osm_tags='ua' ,na_gini_csv=nijm_na_800_UA_gini_table,
-                            eucl_gini_csv=nijm_eucl_800_UA_gini_table, id='identifier')
-funcs.maps_green_per_poly(city='Nijmegen',dataset='OSM UA',UA_data=Nijmegen_UA, EPSG=nijm_epsg,osm_tags=osm_ua, na_gini_csv=nijm_na_800_OSM_UA_gini_table,
-                            eucl_gini_csv=nijm_eucl_800_OSM_UA_gini_table, id='identifier')
-funcs.maps_green_per_poly(city='Nijmegen',dataset='EU',UA_data=Nijmegen_UA, EPSG=nijm_epsg,osm_tags='eu', na_gini_csv=nijm_na_800_EU_gini_table,
-                            eucl_gini_csv=nijm_eucl_800_EU_gini_table, id='identifier')
-funcs.maps_green_per_poly(city='Nijmegen',dataset='OSM Narrow',UA_data=Nijmegen_UA, EPSG=nijm_epsg,osm_tags=osm_narrow, na_gini_csv=nijm_na_800_OSM_narrow_gini_table,
-                            eucl_gini_csv=nijm_eucl_800_OSM_narrow_gini_table, id='identifier')
-funcs.maps_green_per_poly(city='Nijmegen',dataset='OSM Broad',UA_data=Nijmegen_UA, EPSG=nijm_epsg,osm_tags=osm_broad, na_gini_csv=nijm_na_800_OSM_broad_gini_table,
-                            eucl_gini_csv=nijm_eucl_800_OSM_broad_gini_table, id='identifier')
-#Essen
-funcs.maps_green_per_poly('Essen','UA',Essen_UA, ess_epsg,'ua', ess_na_800_UA_gini_table,
-                            ess_eucl_800_UA_gini_table, 'IDENT')
-funcs.maps_green_per_poly('Essen','OSM UA',Essen_UA, ess_epsg, osm_ua, ess_na_800_OSM_UA_gini_table,
-                            ess_eucl_800_OSM_UA_gini_table, 'IDENT')
-funcs.maps_green_per_poly('Essen','EU',Essen_UA, ess_epsg, 'eu', ess_na_800_EU_gini_table,
-                            ess_eucl_800_EU_gini_table, 'IDENT')
-funcs.maps_green_per_poly('Essen','OSM Narrow',Essen_UA, ess_epsg,osm_narrow, ess_na_800_OSM_narrow_gini_table,
-                            ess_eucl_800_OSM_narrow_gini_table, 'IDENT')
-funcs.maps_green_per_poly('Essen','OSM Broad',Essen_UA, ess_epsg, osm_broad, ess_na_800_OSM_broad_gini_table,
-                            ess_eucl_800_OSM_broad_gini_table, 'IDENT')
+#OSM, 300m
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',0.25 ,300,nijm_na_025_300_OSM_gini_table,
+                            nijm_eucl_025_300_OSM_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',1 ,300,nijm_na_1_300_OSM_gini_table,
+                            nijm_eucl_1_300_OSM_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',5,300,nijm_na_5_300_OSM_gini_table,
+                            nijm_eucl_5_300_OSM_gini_table, id='identifier')
+#OSM, 800m
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',0.25, 800,nijm_na_025_800_OSM_gini_table,
+                            nijm_eucl_025_800_OSM_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',1, 800,nijm_na_1_800_OSM_gini_table,
+                            nijm_eucl_1_800_OSM_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','OSM',Nijmegen_UA, nijm_epsg,'OSM',5, 800,nijm_na_5_800_OSM_gini_table,
+                            nijm_eucl_5_800_OSM_gini_table, id='identifier')
 
-#Bristol
-funcs.maps_green_per_poly('Bristol','UA',Bristol_UA, brist_epsg,'ua', brist_na_800_UA_gini_table,
-                            brist_eucl_800_UA_gini_table, 'identifier')
-funcs.maps_green_per_poly('Bristol','OSM UA',Bristol_UA, brist_epsg,osm_ua, brist_na_800_OSM_UA_gini_table,
-                            brist_eucl_800_OSM_UA_gini_table, 'identifier')
-funcs.maps_green_per_poly('Bristol','EU',Bristol_UA, brist_epsg, 'eu', brist_na_800_EU_gini_table,
-                            brist_eucl_800_EU_gini_table, 'identifier')
-funcs.maps_green_per_poly('Bristol','OSM Narrow',Bristol_UA, brist_epsg, osm_narrow, brist_na_800_OSM_narrow_gini_table,
-                            brist_eucl_800_OSM_narrow_gini_table, 'identifier')
-funcs.maps_green_per_poly('Bristol','OSM Broad',Bristol_UA, brist_epsg, osm_broad, brist_na_800_OSM_broad_gini_table,
-                            brist_eucl_800_OSM_broad_gini_table, 'identifier')
+#UA, 300m
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',0.25 ,300,nijm_na_025_300_UA_gini_table,
+                            nijm_eucl_025_300_UA_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',1 ,300,nijm_na_1_300_UA_gini_table,
+                            nijm_eucl_1_300_UA_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',5,300,nijm_na_5_300_UA_gini_table,
+                            nijm_eucl_5_300_UA_gini_table, id='identifier')
+#UA, 800m
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',0.25, 800,nijm_na_025_800_UA_gini_table,
+                            nijm_eucl_025_800_UA_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',1, 800,nijm_na_1_800_UA_gini_table,
+                            nijm_eucl_1_800_UA_gini_table, id='identifier')
+funcs.maps_green_per_poly('Nijmegen','UA',Nijmegen_UA, nijm_epsg,'UA',5, 800,nijm_na_5_800_UA_gini_table,
+                            nijm_eucl_5_800_UA_gini_table, id='identifier')
+
+
+
+
+
 
