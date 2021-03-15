@@ -56,16 +56,17 @@ def preprocessing(city,epsg, UA_data_path):
     ntw_tf = ox.project_graph(ntw, to_crs=epsg)
     nodes_tf = nodes.to_crs(epsg)
     edges_tf = edges.to_crs(epsg)
+
     #clip the UA data by the same buffer
-    ua_clp = gpd.clip(ua_data_tf,boundary_tf, keep_geom_type=True)
+    ua_clp = gpd.clip(ua_data_tf,city_bnd_bff_tf, keep_geom_type=True)
 
     #create save for pop,boundary and total UA data
     #possible to convert these to geopackage instead of shape file
     ox.save_graphml(ntw_tf, filepath=filepath+"_road_ntw.graphml")
     pop_clp.to_file(filepath+'_pop_data.shp')
     boundary_tf.to_file(filepath+'_city_boundary.shp')
-    city_bnd_bff.to_file(filepath+'_city_boundary_bff.shp')
-    ua_clp.to_file(filepath+'_UA_data.shp')
+    city_bnd_bff_tf.to_file(filepath+'_city_boundary_bff.shp')
+    ua_clp.to_file(filepath+'_ua_data.shp')
     nodes_tf.to_file(filepath+'_road_nodes.shp')
     edges_tf.to_file(filepath+'_road_edges.shp')
 
@@ -125,7 +126,8 @@ def park_extract(city,UA_data, EPSG, id):
     # merge overlapping ugss
     # create buffer of 4.5 meters(width of half a two lane road), merge the polygons and remove the 4.5 meters
     # (can make a function out of this)
-    ua_parks_buff = ua_parks.buffer(4.5)
+    ua_parks_clip = gpd.clip(ua_parks, city_boundary_bff)
+    ua_parks_buff = ua_parks_clip.buffer(4.5)
     ua_parks_uu = ua_parks_buff.unary_union
     ua_parks_uu = ua_parks_uu.buffer(-4.5)
     ua_parks_ovl = gpd.GeoDataFrame(geometry=[ua_parks_uu], crs=EPSG)
@@ -146,6 +148,12 @@ def park_extract(city,UA_data, EPSG, id):
     osm_base_025.to_file('./output/'+city_abr+'/interdata/'+city_abr+'_osm_base_parks.shp')
     ua_parks_025.to_file('./output/'+city_abr+'/interdata/'+city_abr+'_ua_parks.shp')
 
+    ##cut parks to size of municipality
+    ua_parks_cut = gpd.clip(ua_parks_025, city_boundary)
+    osm_base_cut = gpd.clip(osm_base_025, city_boundary)
+    osm_adj_cut = gpd.clip(osm_adj_025, city_boundary)
+
+
     # calculate the percentage per size(0.25,1,5 ha)
     tot_ct_area = (city_boundary.area / 10000)
     sizes = [0.25, 1, 5]
@@ -159,9 +167,9 @@ def park_extract(city,UA_data, EPSG, id):
             percs.append((float(parks[parks['park_area'] >= i].sum()) / float(tot_ct_area)) * 100)
         return percs
 
-    pc_df['ua_parks_perc'] = perc_calc(sizes, ua_parks_ovl, tot_ct_area)
-    pc_df['osm_base'] = perc_calc(sizes, osm_base, tot_ct_area)
-    pc_df['osm_adj'] = perc_calc(sizes, osm_adj, tot_ct_area)
+    pc_df['ua_parks_perc'] = perc_calc(sizes, ua_parks_cut, tot_ct_area)
+    pc_df['osm_base'] = perc_calc(sizes, osm_base_cut, tot_ct_area)
+    pc_df['osm_adj'] = perc_calc(sizes, osm_adj_cut, tot_ct_area)
     pc_df.to_csv('./output/'+city_abr+'/interdata/'+city_abr+'_parks_perc.csv')
     pc_df.to_excel('./output/'+city_abr+'/interdata/'+city_abr+'_parks_perc.xlsx')
 
@@ -415,6 +423,8 @@ def na_analysis(city,name,distance, epsg, size, ident):
     gini_table["Gini"] = gini
     gini_table.to_csv("./output/" + city_abr + '/network/' + city_abr + "_na_" + str(distance) + "_" + str(
         size) + '_' + name + "_gini_table.csv")
+    gini_table.to_excel("./output/" + city_abr + '/network/' + city_abr + "_na_" + str(distance) + "_" + str(
+        size) + '_' + name + "_gini_table.xlsx")
     ## relink the data to the na_pop_buffers
     # join accessibility csv with the population polygons
     pop_data = gpd.read_file('./output/' + city_abr + '/' + city_abr + '_pop_data.shp')
@@ -423,6 +433,9 @@ def na_analysis(city,name,distance, epsg, size, ident):
     total_pop_shp.to_file("./output/" + city_abr + '/network/' + city_abr + "_na_" + str(distance) + "_" + str(
         size) + '_' + name + "_tot_data.csv")
     return gini
+
+
+
 
 ##function without multiple park nodes options
 def nearest_single(city, ua_data,min_size, epsg, name):
@@ -435,7 +448,7 @@ def nearest_single(city, ua_data,min_size, epsg, name):
     ##variables
     network_type = 'all'
     city_abr = city[0:4].lower()
-    output_filepath = "/output/"+city_abr+"/nearest/"
+    output_filepath = "./output/"+city_abr+"/nearest/"
 
 
     #load the correct park ### change to load the specific parks
@@ -552,29 +565,29 @@ def execute_eucl(city, epsg, ua_data, name):
     # create pandas dataframe with all the ginis per size
     gini_df = pd.DataFrame({'Minimum park size (in ha)': ['0.25', '1', '5']})
 
-    for i in range(len(name)):
-        for j in range(len(distances)):
-            for k in range(len(sizes)):
-                city_eucl_025_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
-                city_eucl_1_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
-                city_eucl_5_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
-            gini_df[city[0:4].lower() + '_eucl_' + names[i] + '_'+str(distances[j])] = [city_eucl_025_300_gini, city_eucl_1_300_gini,
-                                                                     city_eucl_5_300_gini]
-            gini_df.to_csv("./output/" + city_abr + "/euclidean/" + names[i] +'_'+str(distances[j])+ "_gini_table_eucl.csv")
-            gini_df.to_excel("./output/" + city_abr + "/euclidean/" + names[i] +'_'+str(distances[j])+ "_gini_table_eucl.xlsx")
+    # for i in range(len(name)):
+    #     for j in range(len(distances)):
+    #         for k in range(len(sizes)):
+    #             city_eucl_025_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
+    #             city_eucl_1_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
+    #             city_eucl_5_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[k], distances[j], names[i], id)
+    #         gini_df[city[0:4].lower() + '_eucl_' + names[i] + '_'+str(distances[j])] = [city_eucl_025_300_gini, city_eucl_1_300_gini,
+    #                                                                  city_eucl_5_300_gini]
+    #         gini_df.to_csv("./output/" + city_abr + "/euclidean/" + names[i] +'_'+str(distances[j])+ "_gini_table_eucl.csv")
+    #         gini_df.to_excel("./output/" + city_abr + "/euclidean/" + names[i] +'_'+str(distances[j])+ "_gini_table_eucl.xlsx")
     #
-    # # 300m
-    # city_eucl_025_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[0], distances[0], name, id)
-    # city_eucl_1_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[1], distances[0], name, id)
-    # city_eucl_5_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[2], distances[0], name, id)
-    # # 800m
-    # city_eucl_025_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[0], distances[1], name, id)
-    # city_eucl_1_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[1], distances[1], name, id)
-    # city_eucl_5_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[2], distances[1], name, id)
-    # gini_df[city[0:4].lower()+'_eucl_' + name + '_300'] = [city_eucl_025_300_gini, city_eucl_1_300_gini, city_eucl_5_300_gini]
-    # gini_df[city[0:4].lower()+'_eucl_' + name + '_800'] = [city_eucl_025_800_gini, city_eucl_1_800_gini, city_eucl_5_800_gini]
-    # gini_df.to_csv("/output/"+city_abr+"/euclidean/"+name+"all_gini_table_eucl.csv")
-    # gini_df.to_excel("/output/"+city_abr+"/euclidean/"+name+"all_gini_table_eucl.xlxs")
+     # 300m
+    city_eucl_025_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[0], distances[0], name, id)
+    city_eucl_1_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[1], distances[0], name, id)
+    city_eucl_5_300_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[2], distances[0], name, id)
+    # 800m
+    city_eucl_025_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[0], distances[1], name, id)
+    city_eucl_1_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[1], distances[1], name, id)
+    city_eucl_5_800_gini = funcs.calc_eucl_ugs_gini(city, epsg, ua_data, sizes[2], distances[1], name, id)
+    gini_df[city[0:4].lower()+'_eucl_' + name + '_300'] = [city_eucl_025_300_gini, city_eucl_1_300_gini, city_eucl_5_300_gini]
+    gini_df[city[0:4].lower()+'_eucl_' + name + '_800'] = [city_eucl_025_800_gini, city_eucl_1_800_gini, city_eucl_5_800_gini]
+    gini_df.to_csv("./output/"+city_abr+"/euclidean/"+name+"_all_gini_table_eucl.csv")
+    gini_df.to_excel("./output/"+city_abr+"/euclidean/"+name+"_all_gini_table_eucl.xlsx")
     return gini_df
 
 
@@ -819,3 +832,321 @@ def maps_green_per_poly (city,dataset, UA_data, EPSG, name,min_size,dist, na_gin
     plt.savefig('./output/' + city[:4] + '_'+dataset+'_'+str(dist)+'_'+str(min_size)+'_park_area_diff.png', dpi=500)
 
 
+def ugs_mannwhit(city, method):
+    import geopandas as gpd
+    import pandas as pd
+    import scipy.stats as stats
+
+    city_abr = city[0:4].lower()
+    dist = [300, 800]
+    size = [0.25, 1, 5]
+    full_df = pd.DataFrame(
+        columns=['Method', 'Definition',  'Size', 'Distance', 'Variable', 'high_25_mean', 'low_25_mean', 'Mann_Whitney_U',
+                 'p-value'])
+    avg_df = pd.DataFrame(
+        columns=['Method', 'Definition',  'Size', 'Distance', 'Variable', 'tot_mean','high_25_mean','med_high_25_mean','med_low_25_mean', 'low_25_mean'
+                 ])
+    definitions = ["UA", 'OSM_base', 'OSM_adj']
+    # data
+    pop_data = gpd.read_file('./output/' + city_abr + '/' + city_abr + '_pop_data.shp')
+    if method == 'near':
+        var = 'min_dist'
+        output_filepath="./output/nijm/nearest/"
+    elif method == 'eucl':
+        var = 'park_area'
+        output_filepath="./output/nijm/euclidean/"
+    else:
+        var = 'park_area'
+        output_filepath="./output/nijm/network/"
+
+    # socio-econ data
+    post_data = gpd.read_file("./data/PC5_2015/CBS_PC5_2015_v2.shp")
+    #load city boundary
+    city_boundary = gpd.read_file("./output/nijm/interdata/nijm_city_boundary.shp")
+    # Only keep nijmegen buurten
+    post_nijm = gpd.overlay(post_data, city_boundary, how='intersection')
+    #remove all rows with secret data
+    drop_numbs = [-99999999, -99999998, -99999997, -99997]
+    post_nijm = post_nijm[post_nijm.INW_014 != -99997]
+    post_nijm = post_nijm[post_nijm.INW_65PL != -99997]
+    post_nijm = post_nijm[post_nijm.WOZWONING != -99997]
+
+    #post_nijm = post_nijm[~post_nijm.isin(drop_numbs)]
+
+    #calculate the percentage instead of the absolute number
+    post_nijm['PER_INW_65PL'] = ((post_nijm.INW_65PL / post_nijm.INWONER) * 100)
+    post_nijm['PER_INW_014'] = ((post_nijm.INW_014 / post_nijm.INWONER) * 100)
+
+    # the chosen socio-econ variables
+    var_list = ["WOZWONING", "PER_INW_014", "PER_INW_65PL", var, 'geometry']
+
+    for l in range(len(definitions)):
+            for j in range(len(size)):
+                for k in range(len(dist)):
+                    if method == 'near':
+                        x_data = pd.read_csv(output_filepath + city[:4] + "_"+method+"_" + str(size[j]) + '_' + definitions[l] + "_gini_table.csv")
+                        dist_var = None
+                    else:
+                        x_data = pd.read_csv(output_filepath + city[:4] + "_"+method+"_" + str(dist[k]) + "_" + str(size[j]) + '_' + definitions[l] + "_gini_table.csv")
+                        dist_var = dist[k]
+                    pop_clp = gpd.read_file('./output/' + city_abr + '/interdata/' + city_abr + '_pop_data.shp')
+                    ex_data = pop_clp.merge(right=x_data, left_on=['identifier'], right_on=['identifier'],
+                                                       how="inner")
+                    #create average per neighbourhood
+                    post_nijm[var] = 0
+                    # create loop
+                    for i in range(len(post_nijm)):
+                        mask = ex_data.intersects(post_nijm.geometry.iloc[i])
+                        pop_buurt = ex_data.loc[mask]
+                        # calculate the average of these
+                        mean_pop = pop_buurt[var].mean()
+                        # add mean to buurt
+                        post_nijm.iloc[i, -1:] = mean_pop
+
+                    nijm_sel = post_nijm.loc[:,var_list]
+
+                    # link the socio-economic data to the pop_percent datasets
+                    # drop rows containing secret or lacking data
+                    #drop_numbs = [-99999999, -99999998, -99999997]
+                    #pop_park_fin = nijm_sel[~nijm_sel.isin(drop_numbs)]
+                    #pop_park_fin = pop_park_fin[pop_park_fin["PER_INW_014"]>=0&pop_park_fin["PER_INW_65PL"]>=0]
+                    pop_park_fin = nijm_sel
+                    # take the top and bottom 20% of the pop poly´s accessibility
+                    # this gives two populations with different levels of access
+                    # sort
+                    pop_park_sort = pop_park_fin.sort_values(by=var)
+                    pop_top_50 = pop_park_sort.iloc[(round(len(pop_park_sort) * 0.75)):]
+                    pop_med_top_25= pop_park_sort.iloc[(round(len(pop_park_sort) * 0.5)):(round(len(pop_park_sort) * 0.75))]
+                    pop_med_low_25= pop_park_sort.iloc[(round(len(pop_park_sort) * 0.25)):(round(len(pop_park_sort) * 0.5))]
+                    pop_low_50 = pop_park_sort.iloc[:(round(len(pop_park_sort) * 0.25))]
+                    #create a dataframe with the average values of the different classes
+                    avg_values = {  'Method': method,
+                                    'Definition': definitions[l],
+                                    'Size': size[j],
+                                    'Distance': dist_var,
+                                    'Variable': var,
+                                    'tot_mean':pop_park_sort[var].mean() ,
+                                    'high_25_mean': pop_top_50[var].mean(),
+                                    'med_high_25_mean':pop_med_top_25[var].mean(),
+                                    'med_low_25_mean':pop_med_low_25[var].mean(),
+                                    'low_25_mean': pop_low_50[var].mean()}
+                    avg_row = pd.Series(avg_values, name='nijm_' + method)
+                    avg_df = avg_df.append(avg_row)
+
+                    soc_eco_var_list = ["WOZWONING","PER_INW_014", "PER_INW_65PL", ]
+                    for m in range(len(soc_eco_var_list)):
+                        # calculate the mann whitney and the P-value
+                        u_statistic, p_value = stats.mannwhitneyu(list(pop_top_50[soc_eco_var_list[m]]),
+                                                                  list(pop_low_50[soc_eco_var_list[m]]))
+                        # setup dataframe
+                        values_to_add = {'Method': method,
+                                         'Definition': definitions[l],
+                                         'Size': size[j],
+                                         'Distance': dist_var,
+                                         'Gini': float(ex_data['Gini'][0:1]),
+                                         'Variable': soc_eco_var_list[m],
+                                         'high_25_mean': pop_top_50[soc_eco_var_list[m]].mean(),
+                                         'low_25_mean': pop_low_50[soc_eco_var_list[m]].mean(),
+                                         'Mann_Whitney_U': u_statistic,
+                                         'p-value': p_value}
+                        row_to_add = pd.Series(values_to_add, name='nijm_'+method)
+                        full_df = full_df.append(row_to_add)
+    return full_df, avg_df
+
+#execute function for all methods
+
+def execute_MW():
+    x, x1 = ugs_mannwhit('Nijmegen, the Netherlands', 'eucl')
+    y, y1 = ugs_mannwhit('Nijmegen, the Netherlands', 'na')
+
+    ##append the three dataframes
+    full_mw = x
+    full_mw = full_mw.append(y)
+
+    ##append the three average dataframes
+    full_avg = x1
+    full_avg = full_avg.append(y1)
+    full_avg.to_csv('./output/nijm/nijm_avg_25.csv')
+    full_avg.to_excel('./output/nijm/nijm_avg_25.xlsx')
+
+    # create index
+    lst = list(full_mw.index)
+    for i in range(len(lst)):
+        lst[i] = lst[i] + str(i)
+
+    ##create new column
+    full_mw['idnt'] = lst
+    # apply index
+    full_mw = full_mw.set_index('idnt')
+    full_mw.to_csv('./output/nijm/nijm_full_mann_whitney.csv')
+    full_mw.to_excel('./output/nijm/nijm_full_mann_whitney.xlsx')
+
+def moran_bv_plots(city,method, distance, size, name, ident):
+    import os
+    import geopandas as gpd
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from libpysal.weights.contiguity import Queen
+    from esda.moran import Moran,Moran_Local, Moran_BV, Moran_Local_BV, Moran_BV_matrix
+    from splot.esda import plot_moran_bv_simulation, plot_moran_bv
+    from splot.esda import plot_local_autocorrelation, moran_facet, lisa_cluster
+
+    city_abr = city[0:4].lower()
+    if method == 'eucl':
+        filepath = "./output/" + city_abr + "/euclidean/"
+    elif method == 'na':
+        filepath = "./output/" + city_abr + "/network/"
+    else:
+        filepath = "./output/" + city_abr + "/nearest/"
+
+    if method =='near':
+        gini_csv = pd.read_csv(
+            filepath + city_abr + "_" + method + "_" + str(size) + '_' + name + "_gini_table.csv")
+        var = "min_dist"
+        col_nm = 'average_minimum_distance'
+        dist_var = None
+    else:
+        gini_csv = pd.read_csv(
+            filepath + city_abr + "_" + method + "_" + str(distance) + "_" + str(size) + '_' + name + "_gini_table.csv")
+        var = "park_area"
+        col_nm = 'average_park_area'
+        dist_var = distance
+
+    Nijmegen_UA = gpd.read_file(
+        "./data/NL013L3_NIJMEGEN_UA2012_revised_021/Data/NL013L3_NIJMEGEN_UA2012_revised_021.gpkg")
+    pop_data = gpd.read_file('./output/' + city_abr + '/interdata/' + city_abr + '_pop_data.shp')
+    city_boundary = gpd.read_file('./output/' + city_abr + '/interdata/' + city_abr + '_city_boundary.shp')
+    post_data = gpd.read_file("./data/PC5_2015/CBS_PC5_2015_v2.shp")
+    #set up dataframe to be filled in
+    full_df = pd.DataFrame(
+        columns=['Method', 'Definition', 'Size', 'Distance', 'Variable', 'Bivariate Local Morans I',
+                 'p-value'])
+
+    # join accessibility csv with the population polygons
+    pop_park_area = pop_data.merge(right=gini_csv, left_on=[ident], right_on=[ident], how="inner")
+
+    # cut & save postal data to the Nijmegen extent
+    # check intersect with city_boundary
+    post_nijm = gpd.overlay(post_data, city_boundary, how='intersection')
+    if not os.path.exists('./output/' + city_abr + '/interdata/nijm_post_data.shp'):
+        post_nijm.to_file('./output/' + city_abr + '/interdata/nijm_post_data.shp')
+    ##calculate the average accessibility to the postal code data of Nijmegen
+    # create new column
+    post_nijm.loc[:, col_nm] = 0
+    # create loop
+    for i in range(len(post_nijm)):
+        mask = pop_park_area.intersects(post_nijm.geometry.iloc[i])
+        pop_buurt = pop_park_area.loc[mask]
+        # calculate the average of these
+        mean_pop = pop_buurt[var].mean()
+        # add mean to buurt
+        post_nijm.iloc[i, -1:] = mean_pop
+    #create a full dataframe with everything
+    full_df = pd.DataFrame(
+        columns=['Method', 'Name','Size', 'Distance', 'Variable', 'Global_BV_Morans_I', 'p-value'])
+
+    ##need to get a percentage per postal code as some postal codes contain more people than others
+    post_nijm.loc[:,'PER_INW_014'] = (post_nijm["INW_014"]/post_nijm["INWONER"])*100
+    post_nijm.loc[:, 'PER_INW_65PL'] = (post_nijm["INW_65PL"] / post_nijm["INWONER"]) * 100
+
+    # the chosen socio-econ variables
+    variables = ["PER_INW_014", "PER_INW_65PL", "WOZWONING"]
+    for i in range(len(variables)):
+        # drop rows containing secret or lacking data
+        drop_numbs = [-99999999, -99999998, -99999997, -99997]
+        # choose a variable
+        post_nijm_pp = post_nijm[~post_nijm[variables[i]].isin(drop_numbs)]
+        # remove nan_values average park area
+        post_nijm_drp = post_nijm_pp.dropna(subset=[col_nm])
+        ##Morans I
+        y = post_nijm_drp[col_nm].values
+        # CHOSE VARIABLE FOR X
+        x = post_nijm_drp[variables[i]].values
+        w = Queen.from_dataframe(post_nijm)
+        w.transform = 'r'
+        # calculate moransI
+        w = Queen.from_dataframe(post_nijm_drp)
+        moran = Moran(y, w)
+        moran_x = Moran(x,w)
+        print(variables[i], 'Moran:',moran_x.I, 'p-value:',moran_x.p_sim)
+        #moran.p_sim
+        # calculate bivariable MoransI
+        moran = Moran(y, w)
+        moran_bv = Moran_BV(y, x, w)
+        moran_loc = Moran_Local(y, w)
+        moran_loc_bv = Moran_Local_BV(y, x, w)
+
+        #add to the dataframe
+        values_to_add = {'Method': method,
+                         'Name' :name,
+                         'Size': size,
+                         'Distance': dist_var,
+                         'Variable': variables[i],
+                         'Global_Morans_I':moran.I,
+                         'p-value':moran.p_sim
+                         }
+        row_to_add = pd.Series(values_to_add, name='nijm_'+method)
+        full_df = full_df.append(row_to_add)
+        #create selective visualizations
+        if distance == 800 and size == 5 and variables[i] =='WOZWONING':
+            lisa_cluster(moran_loc_bv, post_nijm_drp, p=0.05, figsize=(5, 5))
+            plt.savefig(filepath+method+'_'+name+'_'+str(dist_var)+'_'+str(size)+'_'+ variables[i].lower()+'MBV_LISA_plot.png')
+
+
+        #create if statement that when morans bv is significant it will
+        # if (values_to_add['Global_BV_Morans_I'] > 0.25) and (values_to_add['p-value']<0.05):
+        #     # map visualization(only when data is interesting) (create a check: if BV moran and p- value == x than create visualization
+        #     plot_local_autocorrelation(moran_loc_bv, post_nijm_drp, variables[i])
+        #     plt.suptitle(method+' '+name+ ' '+str(dist_var)+'m '+str(size)+'ha '+ variables[i].lower())
+        #     plt.savefig(filepath+method+'_'+name+'_'+str(dist_var)+'_'+str(size)+'_'+ variables[i].lower()+'.png')
+    return full_df
+
+
+
+
+def execute_MI():
+    import pandas as pd
+    # needed variables
+    distances = [300, 800]
+    sizes = [0.25, 1, 5]
+    names = ["UA", "OSM_base", "OSM_adj"]
+    method = ["eucl", "na", "near"]
+    city = 'Nijmegen, the Netherlands'
+
+    # create dataframe
+    x = pd.DataFrame()
+    y = pd.DataFrame()
+    z = pd.DataFrame()
+    #euclidean
+    for k in range(len(names)):
+        for i in range(len(distances)):
+            for j in range(len(sizes)):
+                x1 = moran_bv_plots(city, method[0], distances[i], sizes[j], names[k], "identifier")
+                x = x.append(x1)
+    #network
+    for k in range(len(names)):
+        for i in range(len(distances)):
+            for j in range(len(sizes)):
+                y1 = moran_bv_plots(city, method[1], distances[i], sizes[j], names[k], "identifier")
+                y = y.append(y1)
+    #near
+    for k in range(len(names)):
+        for j in range(len(sizes)):
+            z1 = moran_bv_plots(city, method[2],distances[0], sizes[j], names[k], "identifier")
+            z = z.append(z1)
+
+    ###merg the three dataframes
+    full_mi = x
+    full_mi = full_mi.append(y)
+    full_mi = full_mi.append(z)
+
+    # create index
+    lst = list(full_mi.index)
+    for i in range(len(lst)):
+        lst[i] = lst[i] + str(i)
+    # add index as column
+    full_mi['idnt'] = lst
+    # apply index
+    full_mi = full_mi.set_index('idnt')
+    full_mi.to_excel("./output/nijm/nijm_full_moran_I.xlsx")
+    full_mi.to_csv("./output/nijm/nijm_full_moran_I.csv")
